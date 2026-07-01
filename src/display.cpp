@@ -109,9 +109,9 @@ void drawStatusBar(const DataState& st) {
 void drawNavBar(const DataState& st) {
     auto* c = getCanvas();
     (void)st;
-    const char* text = "[Enter/Tab] next  [G] geiger  [L] log";
-    int tw = c->textWidth(text);
+    const char* text = "[Enter] next  [G] geiger  [A] alarm  [L] log";
     c->setTextSize(1);
+    int tw = c->textWidth(text);
     c->setTextColor(DIM, BG);
     c->setCursor((SCREEN_W - tw) / 2, SCREEN_H - 10);
     c->print(text);
@@ -236,6 +236,9 @@ void drawMenuView(const DataState& st) {
     c->setCursor(4, y); y += 12;
     const char* sdSt = st.sd_logging ? (st.sd_ready ? "ON" : "ERR") : "OFF";
     c->printf("L: SD logging    [%s]", sdSt);
+    c->setTextColor(st.alarm_enabled ? ACCENT : DIM);
+    c->setCursor(4, y); y += 12;
+    c->printf("A: Alarm sound   [%s]", st.alarm_enabled ? "ON" : "OFF");
     c->setTextColor(FG);
     c->setCursor(4, y); y += 12;
     c->print("B: Brightness");

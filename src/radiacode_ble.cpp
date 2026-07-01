@@ -244,6 +244,7 @@ void RadiaCodeBLE::disconnect() {
 
 bool RadiaCodeBLE::pollDataState(DataState& st) {
     if (_phase != PH_READY || !_rdy) return false;
+    st.alarm_active = false;
     uint32_t now = millis();
     if (now - _tp < 1000) return false;
     _tp = now;

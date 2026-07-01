@@ -34,6 +34,7 @@ void setup() {
     SettingsData s = settingsLoad();
     data.geiger_enabled  = s.geiger_enabled;
     data.sd_logging      = s.sd_logging;
+    data.alarm_enabled   = s.alarm_enabled;
     data.brightness_idx  = s.brightness_idx;
     static const uint8_t lvl[] = {32, 96, 160, 255};
     M5.Display.setBrightness(lvl[data.brightness_idx & 3]);
@@ -92,10 +93,10 @@ void loop() {
         data.sd_ready = sdReady();
     }
 
-    // Alarm beep (repeating ~2s interval while active)
+    // Alarm beep (repeating ~2s interval while active and unmuted)
     {
         static uint32_t _lastAlarmBeep = 0;
-        if (data.alarm_active && millis() - _lastAlarmBeep > 2000) {
+        if (data.alarm_active && data.alarm_enabled && millis() - _lastAlarmBeep > 2000) {
             _lastAlarmBeep = millis();
             M5.Speaker.tone(1000, 100);
         }
@@ -126,6 +127,9 @@ void loop() {
             case 'l': case 'L':
                 data.sd_logging = !data.sd_logging;
                 goto _save;
+            case 'a': case 'A':
+                data.alarm_enabled = !data.alarm_enabled;
+                goto _save;
             case 'b': case 'B':
                 {
                     static const uint8_t lvl[] = {32, 96, 160, 255};
@@ -145,6 +149,7 @@ _save:
         s.brightness_idx = data.brightness_idx;
         s.geiger_enabled = data.geiger_enabled;
         s.sd_logging     = data.sd_logging;
+        s.alarm_enabled  = data.alarm_enabled;
         settingsSave(s);
     }
 _skip_save:

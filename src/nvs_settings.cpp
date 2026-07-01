@@ -14,6 +14,7 @@ static bool _sdWrite(const SettingsData& d) {
     f.printf("brightness_idx=%u\n", d.brightness_idx);
     f.printf("geiger_enabled=%u\n", (unsigned)d.geiger_enabled);
     f.printf("sd_logging=%u\n", (unsigned)d.sd_logging);
+    f.printf("alarm_enabled=%u\n", (unsigned)d.alarm_enabled);
     f.close();
     return true;
 }
@@ -41,6 +42,7 @@ static SettingsData _sdRead() {
         if      (strcmp(key, "brightness_idx") == 0) d.brightness_idx = uv;
         else if (strcmp(key, "geiger_enabled") == 0) d.geiger_enabled = uv;
         else if (strcmp(key, "sd_logging")     == 0) d.sd_logging     = uv;
+        else if (strcmp(key, "alarm_enabled")  == 0) d.alarm_enabled  = uv;
     }
     f.close();
     return d;

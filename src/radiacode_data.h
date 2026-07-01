@@ -35,6 +35,7 @@ struct DataState {
     bool      geiger_enabled = true;
     bool      sd_logging = false;
     bool      alarm_active = false;
+    bool      alarm_enabled = true;
     bool      sd_ready = false;
     uint8_t   brightness_idx = 2;
 
