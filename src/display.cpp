@@ -109,7 +109,7 @@ void drawStatusBar(const DataState& st) {
 void drawNavBar(const DataState& st) {
     auto* c = getCanvas();
     (void)st;
-    const char* text = "[Enter] next  [G] geiger  [A] alarm  [L] log";
+    const char* text = "[Enter]next [G]geiger [A]alarm [L]log";
     c->setTextSize(1);
     int tw = c->textWidth(text);
     c->setTextColor(DIM, BG);

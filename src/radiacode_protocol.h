@@ -89,16 +89,12 @@ enum class DataGroup : uint8_t {
     GRP_RawDoseRate  = 9,
 };
 
-// ── Alarm flags in RealTimeData.flags ──
-enum AlarmFlag {
-    ALARM_DR_L1   = 1 << 2,
-    ALARM_DR_L2   = 1 << 3,
-    ALARM_DOSE_L1 = 1 << 5,
-    ALARM_DOSE_L2 = 1 << 6,
-    ALARM_CR_L1   = 1 << 10,
-    ALARM_CR_L2   = 1 << 11,
-};
-#define ALARM_ANY (ALARM_DR_L1|ALARM_DR_L2|ALARM_DOSE_L1|ALARM_DOSE_L2|ALARM_CR_L1|ALARM_CR_L2)
+// ── Alarm flags in RealTimeData.flags (u8 per spec) ──
+#define ALARM_DR_L1   0x04
+#define ALARM_DR_L2   0x08
+#define ALARM_DOSE_L1 0x20
+#define ALARM_DOSE_L2 0x40
+#define ALARM_ANY     (ALARM_DR_L1|ALARM_DR_L2|ALARM_DOSE_L1|ALARM_DOSE_L2)
 
 // ── RealTimeData from DATA_BUF ──
 struct RealTimeData {
