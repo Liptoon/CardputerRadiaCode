@@ -32,6 +32,8 @@
 #define SCREEN_H                135
 #define STATUS_BAR_H            18
 
-// ── Alarm thresholds (μSv/h) ──
-#define ALARM_DR_L1             1.0f
-#define ALARM_DR_L2             10.0f
+// ── Settings ──
+#define SD_SETTINGS_PATH "/RC_settings.cfg"
+#define NVS_NAMESPACE "rc-settings"
+
+// ── Alarm (detected from RadiaCode flags, no hardcoded thresholds) ──

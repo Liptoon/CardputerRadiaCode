@@ -53,6 +53,7 @@ private:
         PH_SELECT,    // device list ready, waiting for user
         PH_CONNECT,   // connecting to selected device
         PH_INIT_BLE,  // RadiaCode init handshake
+        PH_RECONNECT, // auto-reconnect attempt
         PH_READY,     // connected and initialized
     };
 
@@ -78,6 +79,9 @@ private:
     uint32_t _scanStartMs = 0;
     uint32_t _tp = 0;
     uint8_t  _is = 0;
+    uint8_t  _reconnectCount = 0;
+    bool     _intentionalDisc = false;
+    BLEAddress _lastAddr = BLEAddress((uint8_t*)"\0\0\0\0\0\0");
 
     void _startScan();
     void _goInit();

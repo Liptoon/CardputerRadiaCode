@@ -10,6 +10,7 @@ void drawMainView(const DataState& st);
 void drawSpectrumView(const DataState& st);
 void drawMenuView(const DataState& st);
 void drawStatusBar(const DataState& st);
+void drawNavBar(const DataState& st);
 void drawBatteryIcon(int x, int y, float pct);
 void drawScanningScreen(int animFrame);
 void drawDeviceList(const std::vector<BleDevice>& devices, int sel, int scanSecs);

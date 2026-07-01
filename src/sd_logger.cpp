@@ -6,6 +6,8 @@
 
 static bool _sdReady = false;
 
+bool sdReady() { return _sdReady; }
+
 bool sdInit() {
     SPI.begin(SD_SPI_SCK, SD_SPI_MISO, SD_SPI_MOSI, SD_SPI_CS);
     if (!SD.begin(SD_SPI_CS, SPI, 25000000)) {

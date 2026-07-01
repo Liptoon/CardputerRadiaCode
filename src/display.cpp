@@ -99,6 +99,22 @@ void drawStatusBar(const DataState& st) {
         c->setCursor(110, 3);
         c->print("G");
     }
+    if (st.sd_logging) {
+        c->setTextColor(st.sd_ready ? ACCENT : ALARM);
+        c->setCursor(122, 3);
+        c->print(st.sd_ready ? "SD" : "ERR");
+    }
+}
+
+void drawNavBar(const DataState& st) {
+    auto* c = getCanvas();
+    (void)st;
+    const char* text = "[Enter/Tab] next  [G] geiger  [L] log";
+    int tw = c->textWidth(text);
+    c->setTextSize(1);
+    c->setTextColor(DIM, BG);
+    c->setCursor((SCREEN_W - tw) / 2, SCREEN_H - 10);
+    c->print(text);
 }
 
 void drawBatteryIcon(int x, int y, float pct) {
@@ -156,10 +172,7 @@ void drawMainView(const DataState& st) {
     c->setCursor(SCREEN_W - 80, r2 + 20);
     c->printf("%.0f%%", st.battery);
 
-    c->setTextSize(1);
-    c->setTextColor(DIM);
-    c->setCursor(2, SCREEN_H - 10);
-    c->print("[Enter] next  [G] geiger  [L] log");
+    drawNavBar(st);
 }
 
 void drawSpectrumView(const DataState& st) {
@@ -170,6 +183,7 @@ void drawSpectrumView(const DataState& st) {
         c->setTextColor(WARN, BG);
         c->setCursor(10, SCREEN_H / 2);
         c->print("No spectrum data");
+        drawNavBar(st);
         return;
     }
     const auto& sp = st.spectrum;
@@ -199,8 +213,11 @@ void drawSpectrumView(const DataState& st) {
     snprintf(info, sizeof(info), "Live:%us  Ch:%u", sp.live_time, sp.valid_channels);
     c->setTextSize(1);
     c->setTextColor(DIM);
-    c->setCursor(2, SCREEN_H - 10);
+    int iw = c->textWidth(info);
+    c->setCursor((SCREEN_W - iw) / 2, SCREEN_H - 20);
     c->print(info);
+
+    drawNavBar(st);
 }
 
 void drawMenuView(const DataState& st) {
@@ -215,17 +232,16 @@ void drawMenuView(const DataState& st) {
     c->setTextColor(st.geiger_enabled ? ACCENT : DIM);
     c->setCursor(4, y); y += 12;
     c->printf("G: Geiger click  [%s]", st.geiger_enabled ? "ON" : "OFF");
-    c->setTextColor(st.sd_logging ? ACCENT : DIM);
+    c->setTextColor(st.sd_logging ? (st.sd_ready ? ACCENT : ALARM) : DIM);
     c->setCursor(4, y); y += 12;
-    c->printf("L: SD logging    [%s]", st.sd_logging ? "ON" : "OFF");
+    const char* sdSt = st.sd_logging ? (st.sd_ready ? "ON" : "ERR") : "OFF";
+    c->printf("L: SD logging    [%s]", sdSt);
     c->setTextColor(FG);
     c->setCursor(4, y); y += 12;
     c->print("B: Brightness");
     c->setCursor(4, y); y += 12;
     c->print("R: Reset dose");
-    c->setTextColor(DIM);
-    c->setCursor(4, SCREEN_H - 10);
-    c->print("[Esc] back");
+    drawNavBar(st);
 }
 
 // ── Scanning animation (canvas-based, no flicker) ──

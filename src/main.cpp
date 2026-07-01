@@ -12,6 +12,7 @@
 #include "geiger_click.h"
 #include "sd_logger.h"
 #include "input_handler.h"
+#include "nvs_settings.h"
 
 RadiaCodeBLE ble;
 DataState    data;
@@ -27,6 +28,16 @@ void setup() {
     displayInit();
     geigerInit();
     sdInit();
+    data.sd_ready = sdReady();
+
+    // Restore persistent settings (NVS → SD → defaults)
+    SettingsData s = settingsLoad();
+    data.geiger_enabled  = s.geiger_enabled;
+    data.sd_logging      = s.sd_logging;
+    data.brightness_idx  = s.brightness_idx;
+    static const uint8_t lvl[] = {32, 96, 160, 255};
+    M5.Display.setBrightness(lvl[data.brightness_idx & 3]);
+
     ble.begin();
 }
 
@@ -37,7 +48,13 @@ void loop() {
     // ── While not connected to RadiaCode → scan / select UI ──
     if (!ble.connected()) {
         static uint32_t lastRedraw = 0;
+        static bool    wasScanning = true;
         uint32_t now = millis();
+
+        if (wasScanning && !ble.isScanning()) {
+            lastRedraw = 0;
+        }
+        wasScanning = ble.isScanning();
 
         if (now - lastRedraw > 200) {
             lastRedraw = now;
@@ -72,6 +89,16 @@ void loop() {
     if (ble.pollDataState(data)) {
         geigerUpdate(data.count_rate, data.geiger_enabled);
         sdLogData(data, data.sd_logging);
+        data.sd_ready = sdReady();
+    }
+
+    // Alarm beep (repeating ~2s interval while active)
+    {
+        static uint32_t _lastAlarmBeep = 0;
+        if (data.alarm_active && millis() - _lastAlarmBeep > 2000) {
+            _lastAlarmBeep = millis();
+            M5.Speaker.tone(1000, 100);
+        }
     }
 
     if (key) {
@@ -95,23 +122,32 @@ void loop() {
                 break;
             case 'g': case 'G': case ' ':
                 data.geiger_enabled = !data.geiger_enabled;
-                break;
+                goto _save;
             case 'l': case 'L':
                 data.sd_logging = !data.sd_logging;
-                break;
+                goto _save;
             case 'b': case 'B':
                 {
-                    static uint8_t lvl[] = {32, 96, 160, 255};
-                    static uint8_t idx = 2;
-                    idx = (idx + 1) & 3;
-                    M5.Display.setBrightness(lvl[idx]);
+                    static const uint8_t lvl[] = {32, 96, 160, 255};
+                    data.brightness_idx = (data.brightness_idx + 1) & 3;
+                    M5.Display.setBrightness(lvl[data.brightness_idx]);
                 }
-                break;
+                goto _save;
             case 'r': case 'R':
                 data.dose = 0; data.dose_rate = 0; data.count_rate = 0;
                 break;
         }
     }
+    goto _skip_save;
+_save:
+    {
+        SettingsData s;
+        s.brightness_idx = data.brightness_idx;
+        s.geiger_enabled = data.geiger_enabled;
+        s.sd_logging     = data.sd_logging;
+        settingsSave(s);
+    }
+_skip_save:
 
     displayUpdate(data);
     delay(10);

@@ -39,6 +39,7 @@ void RadiaCodeBLE::_startScan() {
 }
 
 void RadiaCodeBLE::update() {
+    _intentionalDisc = false;
     uint32_t now = millis();
 
     switch (_phase) {
@@ -67,6 +68,44 @@ void RadiaCodeBLE::update() {
 
         case PH_INIT_BLE:
             _goInit();
+            break;
+
+        case PH_RECONNECT:
+            if (now - _scanStartMs < 2000) break;
+            _reconnectCount++;
+            if (_cl) { _cl = nullptr; }
+            _sv = nullptr; _wc = nullptr; _nc = nullptr;
+
+            _cl = BLEDevice::createClient();
+            _cl->setClientCallbacks(this);
+            if (!_cl->connect(_lastAddr, BLE_ADDR_TYPE_PUBLIC)) {
+                _cl = nullptr;
+                goto _reconnect_fail;
+            }
+            _sv = _cl->getService(BLEUUID(RC_SERVICE_UUID));
+            if (!_sv) { _intentionalDisc = true; _cl->disconnect(); _cl = nullptr; goto _reconnect_fail; }
+            _wc = _sv->getCharacteristic(BLEUUID(RC_WRITE_UUID));
+            _nc = _sv->getCharacteristic(BLEUUID(RC_NOTIFY_UUID));
+            if (!_wc || !_nc) { _intentionalDisc = true; _cl->disconnect(); _cl = nullptr; goto _reconnect_fail; }
+
+            _nc->registerForNotify(_onNfy, true);
+            {
+                BLERemoteDescriptor* cccd = _nc->getDescriptor(BLEUUID((uint16_t)0x2902));
+                if (cccd) { uint8_t v[] = {0x01,0x00}; cccd->writeValue(v,2,true); }
+            }
+            _phase = PH_INIT_BLE;
+            _is = 0;
+            break;
+
+_reconnect_fail:
+            if (_reconnectCount >= 3) {
+                _lastAddr = BLEAddress((uint8_t*)"\0\0\0\0\0\0");
+                _reconnectCount = 0;
+                _startScan();
+            } else {
+                _phase = PH_RECONNECT;
+                _scanStartMs = millis();
+            }
             break;
 
         case PH_READY:
@@ -180,6 +219,8 @@ void RadiaCodeBLE::_goInit() {
             uint8_t z[8];
             memcpy(z, &id, 4); memcpy(z+4, &val, 4);
             if (_exe((uint16_t)Command::WR_VIRT_SFR, z, 8)) {
+                if (_cl) _lastAddr = _cl->getPeerAddress();
+                _reconnectCount = 0;
                 _connected = true;
                 _rdy = true; _phase = PH_READY; _tp = millis();
             } else { disconnect(); _startScan(); }
@@ -190,6 +231,7 @@ void RadiaCodeBLE::_goInit() {
 
 void RadiaCodeBLE::disconnect() {
     if (_cl) {
+        _intentionalDisc = true;
         if (_cl->isConnected()) _cl->disconnect();
         _cl = nullptr;
     }
@@ -230,6 +272,9 @@ bool RadiaCodeBLE::pollDataState(DataState& st) {
                         memcpy(&dr, buf+pos+4, 4);
                         st.count_rate = cr;
                         st.dose_rate  = dr * 10000.0f;
+                        uint16_t rflags;
+                        memcpy(&rflags, buf+pos+12, 2);
+                        st.alarm_active = (rflags & ALARM_ANY) != 0;
                     }
                     bsz = 15;
                     break;
@@ -282,7 +327,23 @@ bool RadiaCodeBLE::pollDataState(DataState& st) {
 }
 
 void RadiaCodeBLE::onConnect(BLEClient*) {}
-void RadiaCodeBLE::onDisconnect(BLEClient*) { _connected = false; _rdy = false; }
+void RadiaCodeBLE::onDisconnect(BLEClient*) {
+    _connected = false;
+    _rdy = false;
+    if (_intentionalDisc) {
+        _intentionalDisc = false;
+        _startScan();
+        return;
+    }
+    if (_lastAddr.toString() != "00:00:00:00:00:00" && _reconnectCount < 3) {
+        _phase = PH_RECONNECT;
+        _scanStartMs = millis();
+    } else {
+        _lastAddr = BLEAddress((uint8_t*)"\0\0\0\0\0\0");
+        _reconnectCount = 0;
+        _startScan();
+    }
+}
 
 void RadiaCodeBLE::_onNfy(BLERemoteCharacteristic*, uint8_t* d, size_t l, bool) {
     if (!g_inst) return;
