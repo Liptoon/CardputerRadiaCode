@@ -104,6 +104,11 @@ void drawStatusBar(const DataState& st) {
         c->setCursor(122, 3);
         c->print(st.sd_ready ? "SD" : "ERR");
     }
+    if (st.alarm_enabled) {
+        c->setTextColor(ALARM);
+        c->setCursor(140, 3);
+        c->print("A");
+    }
 }
 
 void drawNavBar(const DataState& st) {

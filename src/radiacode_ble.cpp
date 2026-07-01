@@ -98,6 +98,7 @@ void RadiaCodeBLE::update() {
             break;
 
 _reconnect_fail:
+            if (_phase == PH_SCAN) break;  // onDisconnect already started scan
             if (_reconnectCount >= 3) {
                 _lastAddr = BLEAddress((uint8_t*)"\0\0\0\0\0\0");
                 _reconnectCount = 0;
@@ -127,11 +128,11 @@ void RadiaCodeBLE::connectToDevice(BLEAddress addr) {
     }
 
     _sv = _cl->getService(BLEUUID(RC_SERVICE_UUID));
-    if (!_sv) { disconnect(); _startScan(); return; }
+    if (!_sv) { disconnect(); return; }
 
     _wc = _sv->getCharacteristic(BLEUUID(RC_WRITE_UUID));
     _nc = _sv->getCharacteristic(BLEUUID(RC_NOTIFY_UUID));
-    if (!_wc || !_nc) { disconnect(); _startScan(); return; }
+    if (!_wc || !_nc) { disconnect(); return; }
 
     _nc->registerForNotify(_onNfy, true);
     BLERemoteDescriptor* cccd = _nc->getDescriptor(BLEUUID((uint16_t)0x2902));
@@ -157,11 +158,11 @@ bool RadiaCodeBLE::selectDevice(int index) {
     }
 
     _sv = _cl->getService(BLEUUID(RC_SERVICE_UUID));
-    if (!_sv) { disconnect(); _startScan(); return false; }
+    if (!_sv) { disconnect(); return false; }
 
     _wc = _sv->getCharacteristic(BLEUUID(RC_WRITE_UUID));
     _nc = _sv->getCharacteristic(BLEUUID(RC_NOTIFY_UUID));
-    if (!_wc || !_nc) { disconnect(); _startScan(); return false; }
+    if (!_wc || !_nc) { disconnect(); return false; }
 
     _nc->registerForNotify(_onNfy, true);
     BLERemoteDescriptor* cccd = _nc->getDescriptor(BLEUUID((uint16_t)0x2902));
@@ -198,7 +199,7 @@ void RadiaCodeBLE::_goInit() {
         case 0: {
             uint8_t a[] = {0x01,0xff,0x12,0xff};
             if (_exe((uint16_t)Command::SET_EXCHANGE, a, 4)) _is = 1;
-            else { disconnect(); _startScan(); }
+            else { disconnect(); if (_phase != PH_SCAN) _startScan(); }
             break;
         }
         case 1: {
@@ -210,7 +211,7 @@ void RadiaCodeBLE::_goInit() {
                 a[4]=ti->tm_sec; a[5]=ti->tm_min; a[6]=ti->tm_hour; a[7]=0;
             } else { memset(a,0,8); a[0]=1; a[1]=1; a[2]=24; }
             if (_exe((uint16_t)Command::SET_TIME, a, 8)) _is = 2;
-            else { disconnect(); _startScan(); }
+            else { disconnect(); if (_phase != PH_SCAN) _startScan(); }
             break;
         }
         case 2: {
@@ -223,7 +224,7 @@ void RadiaCodeBLE::_goInit() {
                 _reconnectCount = 0;
                 _connected = true;
                 _rdy = true; _phase = PH_READY; _tp = millis();
-            } else { disconnect(); _startScan(); }
+            } else { disconnect(); if (_phase != PH_SCAN) _startScan(); }
             break;
         }
     }
@@ -274,7 +275,7 @@ bool RadiaCodeBLE::pollDataState(DataState& st) {
                         st.count_rate = cr;
                         st.dose_rate  = dr * 10000.0f;
                         uint8_t rflags;
-                        memcpy(&rflags, buf+pos+12, 1);
+                        memcpy(&rflags, buf+pos+14, 1);
                         st.alarm_active = (rflags & ALARM_ANY) != 0;
                     }
                     bsz = 15;

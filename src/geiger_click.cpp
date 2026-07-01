@@ -23,8 +23,8 @@ void geigerUpdate(float cps, bool enabled) {
     }
 
     if (now >= _nextClickMs) {
-        // Generate tick sound: short click at ~2kHz
-        M5.Speaker.tone(2000, 15);
+        // Short low-frequency burst mimics Geiger-Müller tube crack
+        M5.Speaker.tone(500, 10);
 
         // Schedule next click based on CPS
         // Average interval = 1000ms / CPS, add randomness

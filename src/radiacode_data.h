@@ -23,7 +23,6 @@ struct DataState {
     float    dose = 0;            // μSv accumulated
     float    temperature = 0;     // °C
     float    battery = 0;         // 0–100 %
-    uint32_t battery_mv = 0;
 
     // spectrum
     SpectrumData spectrum;
@@ -41,5 +40,4 @@ struct DataState {
 
     // timestamps
     uint32_t last_data_ms = 0;
-    uint32_t last_log_ms = 0;
 };

@@ -31,8 +31,10 @@ bool sdInit() {
 void sdLogData(const DataState& st, bool enabled) {
     if (!_sdReady || !enabled) return;
 
+    static uint32_t _lastLogMs = 0;
     uint32_t now = millis();
-    if (now - st.last_log_ms < SD_LOG_INTERVAL_MS) return;
+    if (now - _lastLogMs < SD_LOG_INTERVAL_MS) return;
+    _lastLogMs = now;
 
     char line[128];
     snprintf(line, sizeof(line), "%u,%.3f,%.1f,%.3f,%.1f,%.0f",

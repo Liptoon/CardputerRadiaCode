@@ -25,7 +25,7 @@
 
 // ── Geiger click ──
 #define GEIGER_MIN_CPS          0.5f
-#define GEIGER_DEFAULT_VOLUME   80
+#define GEIGER_DEFAULT_VOLUME   200
 
 // ── Display ──
 #define SCREEN_W                240

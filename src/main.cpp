@@ -40,6 +40,14 @@ void setup() {
     M5.Display.setBrightness(lvl[data.brightness_idx & 3]);
 
     ble.begin();
+
+    // Boot chime — rising three-note sequence
+    delay(100);
+    M5.Speaker.tone(523, 120);
+    delay(130);
+    M5.Speaker.tone(659, 120);
+    delay(130);
+    M5.Speaker.tone(784, 180);
 }
 
 void loop() {
@@ -88,17 +96,24 @@ void loop() {
 
     // ── Data mode (connected to RadiaCode) ──
     if (ble.pollDataState(data)) {
-        geigerUpdate(data.count_rate, data.geiger_enabled);
         sdLogData(data, data.sd_logging);
         data.sd_ready = sdReady();
     }
 
-    // Alarm beep (repeating ~2s interval while active and unmuted)
+    // Geiger click (every loop, not just on BLE poll)
+    geigerUpdate(data.count_rate, data.geiger_enabled);
+
+    // Alarm beep — two-tone pattern, ~3s cycle while active
     {
-        static uint32_t _lastAlarmBeep = 0;
-        if (data.alarm_active && data.alarm_enabled && millis() - _lastAlarmBeep > 2000) {
-            _lastAlarmBeep = millis();
-            M5.Speaker.tone(1000, 100);
+        static uint32_t _alarmCycleStart = 0;
+        if (data.alarm_active && data.alarm_enabled) {
+            uint32_t cycle = (millis() - _alarmCycleStart) % 3000;
+            if (cycle < 400)
+                M5.Speaker.tone(880, 400);
+            else if (cycle >= 600 && cycle < 1000)
+                M5.Speaker.tone(1320, 400);
+        } else {
+            _alarmCycleStart = millis();
         }
     }
 
