@@ -71,10 +71,11 @@ private:
     bool     _rdy = false;
     bool     _connected = false;
 
-    uint8_t  _rb[1024];
+    uint8_t  _rb[4200];
     size_t   _rl = 0;
     size_t   _re = 0;
     bool     _rr = false;
+    uint8_t  _specFmtVer = 0;
 
     uint32_t _scanStartMs = 0;
     uint32_t _tp = 0;
@@ -91,6 +92,8 @@ private:
     bool _exeR(uint16_t c, const uint8_t* a, size_t al, uint8_t* r, size_t* rl);
     bool _rdVS(VS id, uint8_t* d, size_t* l);
     bool _rdVSFRbatch(const uint32_t* ids, size_t n, uint32_t* vals);
+    bool _rdSpectrum(SpectrumData& sp);
+    uint32_t _lastSpecMs = 0;
 
     static void _onNfy(BLERemoteCharacteristic* c, uint8_t* d, size_t l, bool n);
 };

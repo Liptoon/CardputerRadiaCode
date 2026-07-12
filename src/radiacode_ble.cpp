@@ -215,6 +215,18 @@ void RadiaCodeBLE::_goInit() {
             break;
         }
         case 2: {
+            char cfg[512]; size_t cl = sizeof(cfg) - 1;
+            if (_rdVS(VS::CONFIGURATION, (uint8_t*)cfg, &cl)) {
+                cfg[cl] = 0;
+                const char* key = strstr(cfg, "SpecFormatVersion=");
+                if (key) {
+                    _specFmtVer = (uint8_t)atoi(key + 18);
+                }
+            }
+            _is = 3;
+            break;
+        }
+        case 3: {
             uint32_t id = (uint32_t)VSFR::DEVICE_TIME;
             uint32_t val = 0;
             uint8_t z[8];
@@ -275,7 +287,7 @@ bool RadiaCodeBLE::pollDataState(DataState& st) {
                         st.count_rate = cr;
                         st.dose_rate  = dr * 10000.0f;
                         uint8_t rflags;
-                        memcpy(&rflags, buf+pos+14, 1);
+                        memcpy(&rflags, buf+pos+12, 1);
                         st.alarm_active = (rflags & ALARM_ANY) != 0;
                     }
                     bsz = 15;
@@ -321,6 +333,14 @@ bool RadiaCodeBLE::pollDataState(DataState& st) {
     uint32_t tmpVal;
     if (_rdVSFRbatch(ids, 1, &tmpVal)) {
         st.temperature = *(float*)&tmpVal;
+    }
+
+    // 3) Spectrum: fetch ~every 3s when Spectrum view is open
+    if (st.view == ViewMode::Spectrum) {
+        if (now - _lastSpecMs > 3000) {
+            _lastSpecMs = now;
+            st.spectrum_valid = _rdSpectrum(st.spectrum);
+        }
     }
 
     st.ble_status = BLEStatus::Connected;
@@ -411,7 +431,7 @@ bool RadiaCodeBLE::_exeR(uint16_t c, const uint8_t* a, size_t al, uint8_t* r, si
 bool RadiaCodeBLE::_rdVS(VS id, uint8_t* d, size_t* l) {
     uint32_t v = (uint32_t)id;
     uint8_t a[4] = {(uint8_t)v,(uint8_t)(v>>8),(uint8_t)(v>>16),(uint8_t)(v>>24)};
-    uint8_t r[1024]; size_t rl = sizeof(r);
+    static uint8_t r[4200]; size_t rl = sizeof(r);
     if (!_exeR((uint16_t)Command::RD_VIRT_STRING, a, 4, r, &rl)) return false;
     if (rl < 8) return false;
     uint32_t rc = r[0]|((uint32_t)r[1]<<8)|((uint32_t)r[2]<<16)|((uint32_t)r[3]<<24);
@@ -422,6 +442,74 @@ bool RadiaCodeBLE::_rdVS(VS id, uint8_t* d, size_t* l) {
     if (fl > dl) return false;
     if (d && l) { size_t cp = (fl < *l) ? fl : *l; memcpy(d, r + 8, cp); *l = fl; }
     return true;
+}
+
+bool RadiaCodeBLE::_rdSpectrum(SpectrumData& sp) {
+    uint8_t buf[4200];
+    size_t len = sizeof(buf);
+    if (!_rdVS(VS::SPECTRUM, buf, &len)) return false;
+    if (len < 16) return false;
+
+    size_t pos = 0;
+    sp.live_time = buf[pos] | ((uint32_t)buf[pos+1]<<8) |
+                   ((uint32_t)buf[pos+2]<<16) | ((uint32_t)buf[pos+3]<<24);
+    pos += 4;
+    memcpy(&sp.a0, buf+pos, 4); pos += 4;
+    memcpy(&sp.a1, buf+pos, 4); pos += 4;
+    memcpy(&sp.a2, buf+pos, 4); pos += 4;
+
+    sp.valid_channels = 0;
+
+    if (_specFmtVer == 0) {
+        while (pos + 4 <= len && sp.valid_channels < SPECTRUM_CHANNELS) {
+            sp.counts[sp.valid_channels] = buf[pos] | ((uint32_t)buf[pos+1]<<8) |
+                                           ((uint32_t)buf[pos+2]<<16) | ((uint32_t)buf[pos+3]<<24);
+            sp.valid_channels++;
+            pos += 4;
+        }
+    } else if (_specFmtVer == 1) {
+        uint32_t last = 0;
+        bool done = false;
+        while (!done && pos + 2 <= len && sp.valid_channels < SPECTRUM_CHANNELS) {
+            uint16_t u16 = buf[pos] | ((uint16_t)buf[pos+1]<<8); pos += 2;
+            uint16_t cnt = (u16 >> 4) & 0x0FFF;
+            uint8_t vlen = u16 & 0x0F;
+            if (cnt > 4096) cnt = 0;
+            for (uint16_t i = 0; i < cnt && sp.valid_channels < SPECTRUM_CHANNELS && !done; i++) {
+                uint32_t v = 0;
+                switch (vlen) {
+                    case 0: v = 0; break;
+                    case 1:
+                        if (pos >= len) { done = true; break; }
+                        v = buf[pos++]; break;
+                    case 2:
+                        if (pos >= len) { done = true; break; }
+                        v = last + (int8_t)buf[pos++]; break;
+                    case 3:
+                        if (pos + 2 > len) { done = true; break; }
+                        v = last + (int16_t)(buf[pos] | ((int16_t)buf[pos+1]<<8));
+                        pos += 2; break;
+                    case 4:
+                        if (pos + 3 > len) { done = true; break; }
+                        { uint8_t a = buf[pos], b = buf[pos+1];
+                          int8_t c = buf[pos+2];
+                          v = last + ((c << 16) | (b << 8) | a); pos += 3; }
+                        break;
+                    case 5:
+                        if (pos + 4 > len) { done = true; break; }
+                        v = last + (int32_t)(buf[pos] | ((uint32_t)buf[pos+1]<<8) |
+                                              ((uint32_t)buf[pos+2]<<16) | ((uint32_t)buf[pos+3]<<24));
+                        pos += 4; break;
+                    default: done = true; break;
+                }
+                if (done) break;
+                last = v;
+                sp.counts[sp.valid_channels++] = v;
+            }
+        }
+    }
+
+    return sp.valid_channels > 0;
 }
 
 bool RadiaCodeBLE::_rdVSFRbatch(const uint32_t* ids, size_t n, uint32_t* vals) {
