@@ -39,5 +39,6 @@ struct DataState {
     uint8_t   brightness_idx = 2;
 
     // timestamps
+    uint32_t device_time  = 0;   // Unix timestamp from RadiaCode
     uint32_t last_data_ms = 0;
 };

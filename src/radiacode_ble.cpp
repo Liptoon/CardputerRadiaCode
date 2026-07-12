@@ -204,6 +204,8 @@ void RadiaCodeBLE::_goInit() {
         }
         case 1: {
             time_t t = millis()/1000;
+            _baseTime = (uint32_t)t;
+            _handshakeMs = millis();
             struct tm* ti = localtime(&t);
             uint8_t a[8];
             if (ti) {
@@ -270,8 +272,8 @@ bool RadiaCodeBLE::pollDataState(DataState& st) {
     }
 
     size_t pos = 0;
+    bool brk = false;
     while (pos + 7 <= len) {
-        bool brk = false;
         uint8_t eid = buf[pos + 1];
         uint8_t gid = buf[pos + 2];
         pos += 7;
@@ -335,7 +337,10 @@ bool RadiaCodeBLE::pollDataState(DataState& st) {
         st.temperature = *(float*)&tmpVal;
     }
 
-    // 3) Spectrum: fetch ~every 3s when Spectrum view is open
+    // 3) Compute device time from handshake base + elapsed
+    st.device_time = _baseTime + (millis() - _handshakeMs) / 1000;
+
+    // 4) Spectrum: fetch ~every 3s when Spectrum view is open
     if (st.view == ViewMode::Spectrum) {
         if (now - _lastSpecMs > 3000) {
             _lastSpecMs = now;

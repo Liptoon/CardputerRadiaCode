@@ -76,6 +76,8 @@ private:
     size_t   _re = 0;
     bool     _rr = false;
     uint8_t  _specFmtVer = 0;
+    uint32_t _baseTime = 0;
+    uint32_t _handshakeMs = 0;
 
     uint32_t _scanStartMs = 0;
     uint32_t _tp = 0;

@@ -22,6 +22,11 @@ static constexpr auto WARN   = TFT_YELLOW;
 static constexpr auto ALARM  = TFT_RED;
 static constexpr auto DIM    = 0x4208;
 static constexpr auto SEL_BG = 0x3186;
+static constexpr int BORDER = 2;
+static constexpr int MX = BORDER + 2;             // content margin x
+static constexpr int MY = BORDER + 2;             // content margin y
+static constexpr int MW = SCREEN_W - 2 * MX;      // content width
+static constexpr int MH = SCREEN_H - 2 * MY;      // content height
 static constexpr int SBH = STATUS_BAR_H;
 
 static int _cardputerBattPct = -1;
@@ -45,6 +50,7 @@ void displayInit() {
 void displayUpdate(const DataState& st) {
     auto* c = getCanvas();
     c->fillSprite(BG);
+    c->drawRect(BORDER, BORDER, SCREEN_W-2*BORDER, SCREEN_H-2*BORDER, DIM);
     switch (st.view) {
         case ViewMode::Main:     drawMainView(st);     break;
         case ViewMode::Spectrum: drawSpectrumView(st); break;
@@ -55,34 +61,28 @@ void displayUpdate(const DataState& st) {
 
 void drawStatusBar(const DataState& st) {
     auto* c = getCanvas();
-    c->fillRect(0, 0, SCREEN_W, SBH, 0x2104);
+    c->fillRect(MX, MY, MW, SBH, 0x2104);
     c->setTextSize(1);
 
-    c->setCursor(2, 3);
+    c->setCursor(MX + 2, MY + 3);
     c->setTextColor(ACCENT);
     c->print("RC");
 
-    c->setCursor(44, 3);
+    // Time from RadiaCode device
+    if (st.device_time > 0) {
+        int h = (st.device_time % 86400) / 3600;
+        int m = (st.device_time % 3600) / 60;
+        char tb[8];
+        snprintf(tb, sizeof(tb), "%02d:%02d", h, m);
+        c->setTextColor(DIM);
+        c->setCursor(MX + 20, MY + 3);
+        c->print(tb);
+    }
+
+    c->setCursor(MX + 56, MY + 3);
     bool bleOn = st.ble_status == BLEStatus::Connected;
     c->setTextColor(bleOn ? ACCENT : DIM);
     c->print(bleOn ? "BLE" : "---");
-
-    int cb = readCardputerBattery();
-    if (cb >= 0) {
-        c->setTextColor(DIM);
-        c->setCursor(162, 4);
-        c->print("C");
-        drawBatteryIcon(170, 3, cb);
-    }
-    if (st.battery > 0) {
-        c->setTextColor(DIM);
-        c->setCursor(194, 4);
-        c->print("R");
-        drawBatteryIcon(202, 3, st.battery);
-    }
-
-    if (st.alarm_active)
-        c->fillCircle(SCREEN_W / 2, SBH / 2, 3, ALARM);
 
     const char* lbl = "";
     switch (st.view) {
@@ -91,23 +91,40 @@ void drawStatusBar(const DataState& st) {
         case ViewMode::Menu:     lbl = "MENU"; break;
     }
     c->setTextColor(DIM);
-    c->setCursor(72, 3);
+    c->setCursor(MX + 84, MY + 3);
     c->print(lbl);
 
     if (st.geiger_enabled) {
         c->setTextColor(WARN);
-        c->setCursor(110, 3);
+        c->setCursor(MX + 108, MY + 3);
         c->print("G");
     }
     if (st.sd_logging) {
         c->setTextColor(st.sd_ready ? ACCENT : ALARM);
-        c->setCursor(122, 3);
+        c->setCursor(MX + 120, MY + 3);
         c->print(st.sd_ready ? "SD" : "ERR");
     }
     if (st.alarm_enabled) {
         c->setTextColor(ALARM);
-        c->setCursor(140, 3);
+        c->setCursor(MX + 136, MY + 3);
         c->print("A");
+    }
+
+    if (st.alarm_active)
+        c->fillCircle(MX + MW / 2, MY + SBH / 2, 3, ALARM);
+
+    int cb = readCardputerBattery();
+    if (cb >= 0) {
+        c->setTextColor(DIM);
+        c->setCursor(MX + MW - 76, MY + 4);
+        c->print("C");
+        drawBatteryIcon(MX + MW - 66, MY + 3, cb);
+    }
+    if (st.battery > 0) {
+        c->setTextColor(DIM);
+        c->setCursor(MX + MW - 38, MY + 4);
+        c->print("R");
+        drawBatteryIcon(MX + MW - 28, MY + 3, st.battery);
     }
 }
 
@@ -118,7 +135,7 @@ void drawNavBar(const DataState& st) {
     c->setTextSize(1);
     int tw = c->textWidth(text);
     c->setTextColor(DIM, BG);
-    c->setCursor((SCREEN_W - tw) / 2, SCREEN_H - 10);
+    c->setCursor(MX + (MW - tw) / 2, MY + MH - 10);
     c->print(text);
 }
 
@@ -144,37 +161,37 @@ void drawMainView(const DataState& st) {
 
     c->setTextSize(4);
     int vw = strlen(buf) * 12 * 4;
-    int vx = (SCREEN_W - vw) / 2;
-    if (vx < 0) vx = 0;
+    int vx = MX + (MW - vw) / 2;
+    if (vx < MX) vx = MX;
     c->setTextColor(ACCENT, BG);
-    c->setCursor(vx, SBH + 6);
+    c->setCursor(vx, MY + SBH + 6);
     c->print(buf);
 
     c->setTextSize(1);
     c->setTextColor(FG, BG);
     int ux = vx + vw - (5 * 6);
     if (ux < 0) ux = vx;
-    c->setCursor(ux, SBH + 50);
+    c->setCursor(ux, MY + SBH + 50);
     c->print("uSv/h");
 
-    int r2 = SBH + 66;
+    int r2 = MY + SBH + 62;
     c->setTextSize(2);
     c->setTextColor(FG, BG);
-    c->setCursor(4, r2);
+    c->setCursor(MX + 4, r2);
     snprintf(buf, sizeof(buf), "%.1f CPS", st.count_rate);
     c->print(buf);
 
-    c->setCursor(4, r2 + 20);
+    c->setCursor(MX + 4, r2 + 20);
     snprintf(buf, sizeof(buf), "%.2f uSv", st.dose);
     c->print(buf);
 
     c->setTextColor(DIM);
-    c->setCursor(SCREEN_W - 80, r2);
+    c->setCursor(MX + MW - 80, r2);
     c->printf("%.0f", st.temperature);
-    c->drawCircle(SCREEN_W - 80 + c->getCursorX(), r2 + 2, 1, DIM);
+    c->drawCircle(MX + MW - 80 + c->getCursorX(), r2 + 2, 1, DIM);
     c->print("C");
 
-    c->setCursor(SCREEN_W - 80, r2 + 20);
+    c->setCursor(MX + MW - 80, r2 + 16);
     c->printf("%.0f%%", st.battery);
 
     drawNavBar(st);
@@ -186,14 +203,14 @@ void drawSpectrumView(const DataState& st) {
 
     if (!st.spectrum_valid) {
         c->setTextColor(WARN, BG);
-        c->setCursor(10, SCREEN_H / 2);
+        c->setCursor(MX + 10, MY + MH / 2);
         c->print("No spectrum data");
         drawNavBar(st);
         return;
     }
     const auto& sp = st.spectrum;
-    int gx = 4, gy = SBH + 4;
-    int gw = SCREEN_W - 8, gh = SCREEN_H - gy - 22;
+    int gx = MX + 4, gy = MY + SBH + 4;
+    int gw = MW - 8, gh = MY + MH - gy - 22;
     uint32_t maxV = 1;
     for (int i = 0; i < sp.valid_channels; i++)
         if (sp.counts[i] > maxV) maxV = sp.counts[i];
@@ -219,7 +236,7 @@ void drawSpectrumView(const DataState& st) {
     c->setTextSize(1);
     c->setTextColor(DIM);
     int iw = c->textWidth(info);
-    c->setCursor((SCREEN_W - iw) / 2, SCREEN_H - 20);
+    c->setCursor(MX + (MW - iw) / 2, MY + MH - 20);
     c->print(info);
 
     drawNavBar(st);
@@ -230,24 +247,24 @@ void drawMenuView(const DataState& st) {
     auto* c = getCanvas();
 
     c->setTextSize(1);
-    c->setCursor(4, SBH + 8);
+    c->setCursor(MX + 4, MY + SBH + 8);
     c->setTextColor(FG, BG);
     c->print("= Menu =");
-    int y = SBH + 24;
+    int y = MY + SBH + 24;
     c->setTextColor(st.geiger_enabled ? ACCENT : DIM);
-    c->setCursor(4, y); y += 12;
+    c->setCursor(MX + 4, y); y += 12;
     c->printf("G: Geiger click  [%s]", st.geiger_enabled ? "ON" : "OFF");
     c->setTextColor(st.sd_logging ? (st.sd_ready ? ACCENT : ALARM) : DIM);
-    c->setCursor(4, y); y += 12;
+    c->setCursor(MX + 4, y); y += 12;
     const char* sdSt = st.sd_logging ? (st.sd_ready ? "ON" : "ERR") : "OFF";
     c->printf("L: SD logging    [%s]", sdSt);
     c->setTextColor(st.alarm_enabled ? ACCENT : DIM);
-    c->setCursor(4, y); y += 12;
+    c->setCursor(MX + 4, y); y += 12;
     c->printf("A: Alarm sound   [%s]", st.alarm_enabled ? "ON" : "OFF");
     c->setTextColor(FG);
-    c->setCursor(4, y); y += 12;
+    c->setCursor(MX + 4, y); y += 12;
     c->print("B: Brightness");
-    c->setCursor(4, y); y += 12;
+    c->setCursor(MX + 4, y); y += 12;
     c->print("R: Reset dose");
     drawNavBar(st);
 }
@@ -260,21 +277,18 @@ void drawScanningScreen(int animFrame) {
     M5.Display.setBrightness(255);
     auto* c = getCanvas();
     c->fillSprite(BG);
+    c->drawRect(BORDER, BORDER, SCREEN_W-2*BORDER, SCREEN_H-2*BORDER, DIM);
+
     c->setTextSize(1);
     c->setTextColor(ACCENT);
-    c->setCursor(4, 4);
+    c->setCursor(MX + 4, MY + 4);
     c->print("Scanning for RadiaCode...");
 
-    int cx = SCREEN_W / 2, cy = SCREEN_H / 2;
+    int cx = MX + MW / 2, cy = MY + MH / 2;
     c->setTextSize(4);
     c->setTextColor(ACCENT);
     c->setCursor(cx - 12, cy - 16);
     c->print(_spinnerFrames[animFrame & 3]);
-
-    c->setTextSize(1);
-    c->setTextColor(DIM);
-    c->setCursor(4, SCREEN_H - 10);
-    c->print("Looking for devices...");
 
     c->pushSprite(0, 0);
 }
@@ -284,20 +298,22 @@ void drawScanningScreen(int animFrame) {
 void drawDeviceList(const std::vector<BleDevice>& devices, int sel, int scanSecs) {
     auto* c = getCanvas();
     c->fillSprite(BG);
+    c->drawRect(BORDER, BORDER, SCREEN_W-2*BORDER, SCREEN_H-2*BORDER, DIM);
+
     c->setTextSize(1);
     c->setTextColor(ACCENT);
-    c->setCursor(4, 4);
+    c->setCursor(MX + 4, MY + 4);
     c->print("Select RadiaCode device:");
-    c->drawFastHLine(0, 16, SCREEN_W, DIM);
+    c->drawFastHLine(MX, MY + 16, MW, DIM);
 
     if (devices.empty()) {
         c->setTextColor(WARN);
-        c->setCursor(4, 28);
+        c->setCursor(MX + 4, MY + 28);
         c->printf("Scan %ds left", scanSecs);
         c->setTextColor(DIM);
-        c->setCursor(4, 50);
+        c->setCursor(MX + 4, MY + 50);
         c->print("Make sure RadiaCode is");
-        c->setCursor(4, 62);
+        c->setCursor(MX + 4, MY + 62);
         c->print("powered on and in range.");
         c->pushSprite(0, 0);
         return;
@@ -305,26 +321,26 @@ void drawDeviceList(const std::vector<BleDevice>& devices, int sel, int scanSecs
 
     if (scanSecs > 0) {
         c->setTextColor(DIM);
-        c->setCursor(SCREEN_W - 28, 4);
+        c->setCursor(MX + MW - 28, MY + 4);
         c->printf("%ds", scanSecs);
     }
 
-    int y = 22, ih = 18, maxV = (SCREEN_H - y - 10) / ih;
+    int y = MY + 22, ih = 18, maxV = (MY + MH - y - 10) / ih;
     int sc = (sel >= maxV) ? sel - maxV + 1 : 0;
     for (int i = 0; i < (int)devices.size(); i++) {
         if (i < sc) continue;
         if (i - sc >= maxV) break;
         int py = y + (i - sc) * ih;
-        if (i == sel) c->fillRect(0, py, SCREEN_W, ih, SEL_BG);
+        if (i == sel) c->fillRect(MX, py, MW, ih, SEL_BG);
         c->setTextColor(i == sel ? TFT_BLACK : FG, i == sel ? SEL_BG : BG);
-        c->setCursor(4, py + 1);
+        c->setCursor(MX + 4, py + 1);
         c->print(devices[i].name.c_str());
         c->setTextColor(i == sel ? 0x4208 : DIM, i == sel ? SEL_BG : BG);
-        c->setCursor(SCREEN_W - 40, py + 1);
+        c->setCursor(MX + MW - 40, py + 1);
         c->printf("%d dBm", devices[i].rssi);
     }
     c->setTextColor(DIM);
-    c->setCursor(4, SCREEN_H - 10);
+    c->setCursor(MX + 4, MY + MH - 10);
     if (!devices.empty()) c->print("[Enter] connect  [Tab/Spc] next");
     c->pushSprite(0, 0);
 }
