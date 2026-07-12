@@ -193,7 +193,7 @@ void drawSpectrumView(const DataState& st) {
     }
     const auto& sp = st.spectrum;
     int gx = 4, gy = SBH + 4;
-    int gw = SCREEN_W - 8, gh = SCREEN_H - gy - 14;
+    int gw = SCREEN_W - 8, gh = SCREEN_H - gy - 22;
     uint32_t maxV = 1;
     for (int i = 0; i < sp.valid_channels; i++)
         if (sp.counts[i] > maxV) maxV = sp.counts[i];

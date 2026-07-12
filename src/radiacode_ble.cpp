@@ -287,7 +287,7 @@ bool RadiaCodeBLE::pollDataState(DataState& st) {
                         st.count_rate = cr;
                         st.dose_rate  = dr * 10000.0f;
                         uint8_t rflags;
-                        memcpy(&rflags, buf+pos+12, 1);
+                        memcpy(&rflags, buf+pos+14, 1);
                         st.alarm_active = (rflags & ALARM_ANY) != 0;
                     }
                     bsz = 15;
