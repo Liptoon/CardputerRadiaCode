@@ -13,5 +13,5 @@ void drawStatusBar(const DataState& st);
 void drawNavBar(const DataState& st);
 void drawBatteryIcon(int x, int y, float pct);
 void drawScanningScreen(int animFrame);
-void drawDeviceList(const std::vector<BleDevice>& devices, int sel, int scanSecs);
+void drawDeviceList(const std::vector<BleDevice>& devices, int sel, int scanSecs, bool connecting);
 void drawStatusMsg(const char* msg);

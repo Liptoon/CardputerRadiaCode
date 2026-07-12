@@ -75,11 +75,11 @@ void drawStatusBar(const DataState& st) {
         char tb[8];
         snprintf(tb, sizeof(tb), "%02d:%02d", h, m);
         c->setTextColor(DIM);
-        c->setCursor(MX + 20, MY + 3);
+        c->setCursor(MX + 21, MY + 3);
         c->print(tb);
     }
 
-    c->setCursor(MX + 56, MY + 3);
+    c->setCursor(MX + 62, MY + 3);
     bool bleOn = st.ble_status == BLEStatus::Connected;
     c->setTextColor(bleOn ? ACCENT : DIM);
     c->print(bleOn ? "BLE" : "---");
@@ -91,23 +91,28 @@ void drawStatusBar(const DataState& st) {
         case ViewMode::Menu:     lbl = "MENU"; break;
     }
     c->setTextColor(DIM);
-    c->setCursor(MX + 84, MY + 3);
+    c->setCursor(MX + 87, MY + 3);
     c->print(lbl);
 
-    if (st.geiger_enabled) {
-        c->setTextColor(WARN);
-        c->setCursor(MX + 108, MY + 3);
-        c->print("G");
+    // G - A adjacent, then SD, then batteries
+    c->setCursor(MX + 114, MY + 3);
+    c->setTextColor(st.geiger_enabled ? ACCENT : DIM);
+    c->print("G");
+
+    c->setCursor(MX + 122, MY + 3);
+    if (st.alarm_enabled && st.alarm_active) {
+        c->setTextColor(ALARM);
+    } else if (st.alarm_enabled) {
+        c->setTextColor(ACCENT);
+    } else {
+        c->setTextColor(DIM);
     }
+    c->print("A");
+
     if (st.sd_logging) {
         c->setTextColor(st.sd_ready ? ACCENT : ALARM);
-        c->setCursor(MX + 120, MY + 3);
+        c->setCursor(MX + 134, MY + 3);
         c->print(st.sd_ready ? "SD" : "ERR");
-    }
-    if (st.alarm_enabled) {
-        c->setTextColor(ALARM);
-        c->setCursor(MX + 136, MY + 3);
-        c->print("A");
     }
 
     if (st.alarm_active)
@@ -116,15 +121,15 @@ void drawStatusBar(const DataState& st) {
     int cb = readCardputerBattery();
     if (cb >= 0) {
         c->setTextColor(DIM);
-        c->setCursor(MX + MW - 76, MY + 4);
+        c->setCursor(MX + MW - 68, MY + 4);
         c->print("C");
-        drawBatteryIcon(MX + MW - 66, MY + 3, cb);
+        drawBatteryIcon(MX + MW - 58, MY + 3, cb);
     }
-    if (st.battery > 0) {
+    if (st.ble_status == BLEStatus::Connected && st.battery >= 0) {
         c->setTextColor(DIM);
-        c->setCursor(MX + MW - 38, MY + 4);
+        c->setCursor(MX + MW - 32, MY + 4);
         c->print("R");
-        drawBatteryIcon(MX + MW - 28, MY + 3, st.battery);
+        drawBatteryIcon(MX + MW - 22, MY + 3, st.battery);
     }
 }
 
@@ -295,10 +300,19 @@ void drawScanningScreen(int animFrame) {
 
 // ── Device selection list (uses canvas, no flicker) ──
 
-void drawDeviceList(const std::vector<BleDevice>& devices, int sel, int scanSecs) {
+void drawDeviceList(const std::vector<BleDevice>& devices, int sel, int scanSecs, bool connecting) {
     auto* c = getCanvas();
     c->fillSprite(BG);
     c->drawRect(BORDER, BORDER, SCREEN_W-2*BORDER, SCREEN_H-2*BORDER, DIM);
+
+    if (connecting) {
+        c->setTextSize(1);
+        c->setTextColor(ACCENT);
+        c->setCursor(MX + 4, MY + 4);
+        c->print("Connecting...");
+        c->pushSprite(0, 0);
+        return;
+    }
 
     c->setTextSize(1);
     c->setTextColor(ACCENT);
@@ -317,12 +331,6 @@ void drawDeviceList(const std::vector<BleDevice>& devices, int sel, int scanSecs
         c->print("powered on and in range.");
         c->pushSprite(0, 0);
         return;
-    }
-
-    if (scanSecs > 0) {
-        c->setTextColor(DIM);
-        c->setCursor(MX + MW - 28, MY + 4);
-        c->printf("%ds", scanSecs);
     }
 
     int y = MY + 22, ih = 18, maxV = (MY + MH - y - 10) / ih;

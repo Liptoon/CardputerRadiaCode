@@ -58,10 +58,14 @@ void loop() {
     if (!ble.connected()) {
         static uint32_t lastRedraw = 0;
         static bool    wasScanning = true;
+        static bool    _connecting = false;
         uint32_t now = millis();
 
         if (wasScanning && !ble.isScanning()) {
             lastRedraw = 0;
+        }
+        if (!wasScanning && ble.isScanning()) {
+            _connecting = false;
         }
         wasScanning = ble.isScanning();
 
@@ -72,7 +76,7 @@ void loop() {
                 drawScanningScreen(now / 200);
             } else {
                 drawDeviceList(ble.devices(), ble.selectedIndex(),
-                               ble.scanSecondsRemaining());
+                               ble.scanSecondsRemaining(), _connecting);
             }
         }
 
@@ -85,7 +89,7 @@ void loop() {
                     ble.selectPrev(); break;
                 case '\n':
                     ble.selectDevice(ble.selectedIndex());
-                    // drawStatusMsg handled by displayUpdate after connect
+                    _connecting = true;
                     break;
             }
         }
